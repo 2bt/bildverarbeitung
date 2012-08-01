@@ -361,6 +361,7 @@ class ShockFilter : public Filter {
 	SimpleLinearSeperableMaskFilter tmpGauss;
 
 	void iteration(FloatImage& img) {
+		img = tmpGauss.apply(img);
 
 		FloatImage nabs = nxf.apply(img);
 		nabs.square();
@@ -390,12 +391,7 @@ public:
 
 	virtual FloatImage apply(const FloatImage& src_img) {
 		FloatImage img = gsf.apply(src_img);
-
-		for(unsigned int i = 0; i < iterations; i++) {
-			img = tmpGauss.apply(img);
-			iteration(img);
-		}
-
+		for(unsigned int i = 0; i < iterations; i++) iteration(img);
 		return img;
 	}
 };
@@ -450,16 +446,7 @@ class KickAssShockFilter : public Filter {
 				double md = nabla_y.getValue(x, y);
 
 				double a, b; // eigen-vector
-				if(mc == 0) {
-					if(ma > md) {
-						a = 1;
-						b = 0;
-					}
-					else {
-						a = 0;
-						b = 1;
-					}
-				}
+				if(mc == 0) b = !(a = (ma > md));
 				else {
 					double tmp = (ma + md) / 2;
 					double eigen = tmp + sqrt(tmp * tmp - ma * md + mc * mc);
