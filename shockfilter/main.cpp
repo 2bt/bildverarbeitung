@@ -97,7 +97,7 @@ public:
 		for(float& x: data) x = sqrt(x);
 	}
 	void sign() {
-		for(float& x: data) x = (x > 0) ? 1 : (x < 0) ? -1 : 0;
+		for(float& x: data) x = (x > 0) - (x < 0);
 	}
 
 
@@ -456,10 +456,10 @@ class KickAssShockFilter : public Filter {
 					b /= scale;
 				}
 
-				double sign =-(	a * a * dxx.getValue(x, y)
-								+ 2 * a * b * dxy.getValue(x, y)
-								+ b * b * dyy.getValue(x, y));
-				sign = (sign > 0) ? 1 : (sign < 0) ? -1 : 0;
+				double sign = -(a * a * dxx.getValue(x, y) +
+								2 * a * b * dxy.getValue(x, y) +
+								b * b * dyy.getValue(x, y));
+				sign = (sign > 0) - (sign < 0);
 				for(int c = 0; c < 3; c++) {
 					double nx = nxf.apply(input, x, y, c);
 					double ny = nyf.apply(input, x, y, c);
