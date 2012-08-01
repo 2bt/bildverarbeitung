@@ -131,9 +131,6 @@ class LinearMask {
 		offset = o;
 	}
 public:
-	size_t length() {
-		return mask.size();
-	}
 	void normalize() {
 		double sum = 0;
 		for(float x: mask) sum += x;
@@ -209,9 +206,6 @@ class RectMask {
 		offset_y = oy;
 	}
 public:
-	size_t length() {
-		return mask.size();
-	}
 	void normalize() {
 		double sum = 0;
 		for(float x: mask) sum += x;
