@@ -258,7 +258,7 @@ public:
 		return RectMask(m, 3, -1, -1);
 	}
 
-	static RectMask createKickAssLaplaceMask() {
+	static RectMask createImprovedLaplaceMask() {
 		vector<float> m(9);
 		m[0] = 1;
 		m[1] = 1;
@@ -352,7 +352,7 @@ public:
 
 
 
-class ShockFilter : public Filter {
+class SimpleShockFilter : public Filter {
 	unsigned int iterations;
 	SimpleLinearMaskFilter nxf;
 	SimpleLinearMaskFilter nyf;
@@ -382,10 +382,10 @@ class ShockFilter : public Filter {
 	}
 
 public:
-	ShockFilter(float s, unsigned int i)
+	SimpleShockFilter(float s, unsigned int i)
 	: nxf(LinearMask::createNabla(), false)
 	, nyf(LinearMask::createNabla(), true)
-	, lf(RectMask::createKickAssLaplaceMask())
+	, lf(RectMask::createImprovedLaplaceMask())
 	, gsf(LinearMask::createGaussianMask(s))
 	, tmpGauss(LinearMask::createGaussianMask(1)) { iterations = i; }
 
@@ -398,7 +398,7 @@ public:
 
 
 
-class KickAssShockFilter : public Filter {
+class ImprovedShockFilter : public Filter {
 	float sigma;
 	float roh;
 	float omikron;
@@ -473,7 +473,7 @@ class KickAssShockFilter : public Filter {
 	}
 
 public:
-	KickAssShockFilter(float s, float r, float o, unsigned int i)
+	ImprovedShockFilter(float s, float r, float o, unsigned int i)
 	: nxf(LinearMask::createNabla(), false)
 	, nyf(LinearMask::createNabla(), true)
 	, lxxf(LinearMask::createLaplace(), false)
@@ -503,6 +503,7 @@ int main(int argc, char* argv[]) {
 	float omikron;
 	unsigned int iter;
 
+	po::variables_map vm;
 	try {
 		po::options_description desc("allowed options");
 		desc.add_options()
@@ -513,8 +514,8 @@ int main(int argc, char* argv[]) {
 			("roh,r", po::value<float>(&roh)->default_value(5.0), "roh")
 			("omikron,k", po::value<float>(&omikron)->default_value(0.2), "omikron")
 			("iter,x", po::value<unsigned int>(&iter)->default_value(5), "iteration count")
+			("simple", "just use the simple shock filter instead")
 		;
-		po::variables_map vm;
 		po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
 		po::notify(vm);
 		if(vm.count("help")) {
@@ -527,14 +528,13 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	/* TODO:
-		make filters selectable
-
-
-	*/
-
 	QImage src_img(input_file.c_str());
-	KickAssShockFilter(sigma, roh, omikron, iter).apply(FloatImage(src_img)).convert().save(output_file.c_str());
+	if(vm.count("simple")) {
+		SimpleShockFilter(sigma, iter).apply(FloatImage(src_img)).convert().save(output_file.c_str());
+	}
+	else {
+		ImprovedShockFilter(sigma, roh, omikron, iter).apply(FloatImage(src_img)).convert().save(output_file.c_str());
+	}
 
 	return 0;
 }
