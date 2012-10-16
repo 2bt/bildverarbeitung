@@ -399,6 +399,7 @@ public:
 
 
 class ImprovedShockFilter : public Filter {
+	float alpha;
 	float sigma;
 	float roh;
 	float omikron;
@@ -430,41 +431,54 @@ class ImprovedShockFilter : public Filter {
 		FloatImage dyy = lyyf.apply(grey_img);
 
 		// calc matrix
-		FloatImage nabla_xy = nabla_x;
-		nabla_xy *= nabla_y;
-		nabla_x.square();
-		nabla_y.square();
+		FloatImage mat_a = nabla_x;
+		FloatImage mat_d = nabla_y;
+		FloatImage mat_c = nabla_x;
+		mat_c *= nabla_y;
+		mat_a.square();
+		mat_d.square();
 
-		nabla_x = grf.apply(nabla_x);
-		nabla_y = grf.apply(nabla_y);
-		nabla_xy = grf.apply(nabla_xy);
+		mat_a = grf.apply(mat_a);
+		mat_d = grf.apply(mat_d);
+		mat_c = grf.apply(mat_c);
+
+		float sin_alpha = sin(alpha);
+		float cos_alpha = cos(alpha);
 
 		for(int y = 0; y < input.getHeight(); y++) {
 			for(int x = 0; x < input.getWidth(); x++) {
-				double ma = nabla_x.getValue(x, y);
-				double mc = nabla_xy.getValue(x, y);
-				double md = nabla_y.getValue(x, y);
+				float ma = mat_a.getValue(x, y);
+				float mc = mat_c.getValue(x, y);
+				float md = mat_d.getValue(x, y);
 
-				double a, b; // eigen-vector
+				float a, b; // eigen-vector
 				if(mc == 0) b = !(a = (ma > md));
 				else {
-					double tmp = (ma + md) / 2;
-					double eigen = tmp + sqrt(tmp * tmp - ma * md + mc * mc);
+					float tmp = (ma + md) / 2;
+					float eigen = tmp + sqrt(tmp * tmp - ma * md + mc * mc);
 					b = (eigen - ma) / mc;
-					double scale = sqrt(1 + b * b);
+					float scale = sqrt(1 + b * b);
 					a = 1 / scale;
 					b /= scale;
 				}
 
-				double sign = -(a * a * dxx.getValue(x, y) +
+				float u = a;
+				float v = b;
+				a = u * cos_alpha - v * sin_alpha;
+				b = u * sin_alpha + v * cos_alpha;
+
+
+				float sign = -(a * a * dxx.getValue(x, y) +
 								2 * a * b * dxy.getValue(x, y) +
 								b * b * dyy.getValue(x, y));
 				sign = (sign > 0) - (sign < 0);
+
+				float nx = nabla_x.getValue(x, y);
+				float ny = nabla_y.getValue(x, y);
+
+				float e = sign * sqrt(nx * nx + ny * ny);
 				for(int c = 0; c < 3; c++) {
-					double nx = nxf.apply(input, x, y, c);
-					double ny = nyf.apply(input, x, y, c);
-					double v = sign * sqrt((nx * nx + ny * ny) / 2) + input.getValue(x, y, c);
-					img.setValue(v , x, y, c);
+					img.setValue(e + input.getValue(x, y, c), x, y, c);
 				}
 
 			}
@@ -473,8 +487,9 @@ class ImprovedShockFilter : public Filter {
 	}
 
 public:
-	ImprovedShockFilter(float s, float r, float o, unsigned int i)
-	: nxf(LinearMask::createNabla(), false)
+	ImprovedShockFilter(float s, float r, float o, unsigned int i, float alpha=0)
+	: alpha(alpha)
+	, nxf(LinearMask::createNabla(), false)
 	, nyf(LinearMask::createNabla(), true)
 	, lxxf(LinearMask::createLaplace(), false)
 	, lxyf(RectMask::createLXYMask())
@@ -482,7 +497,8 @@ public:
 	, gsf(LinearMask::createGaussianMask(s))
 	, grf(LinearMask::createGaussianMask(r))
 	, gof(LinearMask::createGaussianMask(o))
-	, tmpGauss(LinearMask::createGaussianMask(1)) { iterations = i; }
+	, tmpGauss(LinearMask::createGaussianMask(1))
+	{ iterations = i; }
 
 	virtual FloatImage apply(const FloatImage& src_img) {
 		FloatImage img = gof.apply(src_img);
@@ -498,6 +514,7 @@ int main(int argc, char* argv[]) {
 	// parse options
 	string input_file;
 	string output_file;
+	float alpha;
 	float sigma;
 	float roh;
 	float omikron;
@@ -514,6 +531,7 @@ int main(int argc, char* argv[]) {
 			("roh,r", po::value<float>(&roh)->default_value(5.0), "roh")
 			("omikron,k", po::value<float>(&omikron)->default_value(0.2), "omikron")
 			("iter,x", po::value<unsigned int>(&iter)->default_value(5), "iteration count")
+			("alpha,a", po::value<float>(&alpha)->default_value(0), "alpha")
 			("simple", "just use the simple shock filter instead")
 		;
 		po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
@@ -533,7 +551,7 @@ int main(int argc, char* argv[]) {
 		SimpleShockFilter(sigma, iter).apply(FloatImage(src_img)).convert().save(output_file.c_str());
 	}
 	else {
-		ImprovedShockFilter(sigma, roh, omikron, iter).apply(FloatImage(src_img)).convert().save(output_file.c_str());
+		ImprovedShockFilter(sigma, roh, omikron, iter, alpha / 180 * M_PI).apply(FloatImage(src_img)).convert().save(output_file.c_str());
 	}
 
 	return 0;
