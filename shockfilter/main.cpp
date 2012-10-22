@@ -452,7 +452,7 @@ class ImprovedShockFilter : public Filter {
 				float md = mat_d.getValue(x, y);
 
 				float a, b; // eigen-vector
-				if(mc == 0) b = !(a = (ma > md));
+				if(mc == 0) b = !(a = !md);
 				else {
 					float tmp = (ma + md) / 2;
 					float eigen = tmp + sqrt(tmp * tmp - ma * md + mc * mc);
